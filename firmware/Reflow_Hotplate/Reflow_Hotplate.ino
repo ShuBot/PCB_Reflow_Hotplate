@@ -1,18 +1,22 @@
-//Robu.in
-#include <Wire.h> 
 #include <math.h>
 
 //IO Pins
 const int analogInPin           = A4;       //NTC Therm. sensor connected to A4 pin
-const int pwmOutPin             = 3;       //SSR connected to D3 pin
+const int pwmOutPin             = 3;        //SSR connected to D3 pin
+const int onOffPin              = 5;        //Momentary Switch to start or stop the process
+unsigned long myTime;                       //Variable for Time
+
+//Global Variables
+
 //Functions
-double temp_sense();  //Function to measure Temperature in degree C.
-int    pid_output();  //Function to calculate the PID value.
-double ssr_pwm_out(); //Function to control the SSR with PWM output.
+double temp_sense();                //Function to measure Temperature in degree C.
+int    pid_output();                //Function to calculate the PID value.
+double ssr_pwm_out(int xdc); //Function to control the SSR with PWM output, with duty cycle "xdc".
 
 void setup() 
 {
   Serial.begin(115200);
+  pinMode(onOffPin, INPUT_PULLUP);  //INPUT_PULLUP to use inbuilt pullup resisters
 }
 
 void loop() 
@@ -22,9 +26,41 @@ void loop()
   Temp_C = temp_sense();
   Serial.print("\n Temperature in C:\t"); 
   Serial.print(Temp_C);
+  
+  Serial.print("\tTime: ");
+  myTime = millis();
+  Serial.println(myTime/1000); // prints time since program started
 
-  ssr_pwm_out();
-
+  if(digitalRead(onOffPin) == LOW)  //when D5 connected to GND, process starts
+  {
+    if(Temp_C < 150)
+    {
+      Serial.print("\n SSR ON");
+      ssr_pwm_out(50);
+    }
+    else if(Temp_C >= 150 && Temp_C <= 200)
+    {
+      Serial.print("\n SSR ON");
+      ssr_pwm_out(100);  
+    }
+    else if(Temp_C >= 200 && Temp_C <= 250)
+    {
+      Serial.print("\n SSR ON");
+      ssr_pwm_out(150);  
+    }
+    else if(Temp_C > 250)
+    {
+      Serial.print("\n SSR OFF");
+      ssr_pwm_out(0);
+    }
+  }
+  else
+  { 
+    Serial.print("\n SSR OFF");
+    ssr_pwm_out(0);
+    delay(500);
+  }
+    
 }
 
 double temp_sense()
@@ -32,7 +68,7 @@ double temp_sense()
 //Temperature Sensor Calculation Constants
 const double BETA               = 3990.00;   //Beta value of Thermister
 const double RESISTOR_ROOM_TEMP = 100000.00; //Thermister Resistance at 25 C 
-const double ROOM_TEMP          = 298.15;   //room temperature in Kelvin
+const double ROOM_TEMP          = (273.15 + 27);   //room temperature in Kelvin
 const double R_bal              = 100000.00;//100k Balance Resister
 const int SAMPLE_NUMBER         = 100;       //Total no. of samples to average
 
@@ -78,9 +114,9 @@ int kp = 90;  int ki = 30;  int kd = 80;
   return 0;
 }
 
-double ssr_pwm_out()
+double ssr_pwm_out(int xdc)
 {
-  int value = 30;
+  int value = xdc;
   analogWrite(pwmOutPin, value);  //value can vary from 0 to 255
   //delay(100);
 
