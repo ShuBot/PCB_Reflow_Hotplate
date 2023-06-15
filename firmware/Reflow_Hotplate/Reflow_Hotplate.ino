@@ -1,10 +1,21 @@
+#include <OneWire.h>
+#include <DallasTemperature.h>
+
 #include <math.h>
+
+// Data wire is conntec to the Arduino digital pin 4
+//#define ONE_WIRE_BUS A4
 
 //IO Pins
 const int analogInPin           = A4;       //NTC Therm. sensor connected to A4 pin
 const int pwmOutPin             = 3;        //SSR connected to D3 pin
 const int onOffPin              = 5;        //Momentary Switch to start or stop the process
 unsigned long myTime;                       //Variable for Time
+
+// Setup a oneWire instance to communicate with any OneWire devices
+OneWire oneWire(analogInPin);
+// Pass our oneWire reference to Dallas Temperature sensor 
+DallasTemperature sensors(&oneWire);
 
 //Global Variables
 
@@ -17,13 +28,16 @@ void setup()
 {
   Serial.begin(115200);
   pinMode(onOffPin, INPUT_PULLUP);  //INPUT_PULLUP to use inbuilt pullup resisters
+
+  // Start up the library
+  sensors.begin();
 }
 
 void loop() 
 {
   double Temp_C = 0;
   
-  Temp_C = temp_sense();
+  Temp_C = temp_one_Wire();
   Serial.print("\n Temperature in C:\t"); 
   Serial.print(Temp_C);
   
@@ -31,46 +45,75 @@ void loop()
   myTime = millis();
   Serial.println(myTime/1000); // prints time since program started
 
-  if(digitalRead(onOffPin) == LOW)  //when D5 connected to GND, process starts
-  {
-    if(Temp_C < 150)
+//  if(digitalRead(onOffPin) == LOW)  //when D5 connected to GND, process starts
+//  {
+//    if(Temp_C < 150)
+//    {
+//      Serial.print("\n SSR ON");
+//      ssr_pwm_out(50);
+//    }
+//    else if(Temp_C >= 150 && Temp_C <= 200)
+//    {
+//      Serial.print("\n SSR ON");
+//      ssr_pwm_out(100);  
+//    }
+//    else if(Temp_C >= 200 && Temp_C <= 250)
+//    {
+//      Serial.print("\n SSR ON");
+//      ssr_pwm_out(150);  
+//    }
+//    else if(Temp_C > 250)
+//    {
+//      Serial.print("\n SSR OFF");
+//      ssr_pwm_out(0);
+//    }
+//  }
+//  else
+//  { 
+//    Serial.print("\n SSR OFF");
+//    ssr_pwm_out(0);
+//    delay(500);
+//  }
+    if(digitalRead(onOffPin) == LOW)
     {
-      Serial.print("\n SSR ON");
-      ssr_pwm_out(50);
+        if(Temp_C < 300)
+        {
+          Serial.print("\n SSR ON");
+          ssr_pwm_out(100);
+        }Serial.print("\n SSR ON");
+        //ssr_pwm_out(100);
     }
-    else if(Temp_C >= 150 && Temp_C <= 200)
-    {
-      Serial.print("\n SSR ON");
-      ssr_pwm_out(100);  
-    }
-    else if(Temp_C >= 200 && Temp_C <= 250)
-    {
-      Serial.print("\n SSR ON");
-      ssr_pwm_out(150);  
-    }
-    else if(Temp_C > 250)
+    else
     {
       Serial.print("\n SSR OFF");
       ssr_pwm_out(0);
+      delay(100);
     }
-  }
-  else
-  { 
-    Serial.print("\n SSR OFF");
-    ssr_pwm_out(0);
-    delay(500);
-  }
-    
 }
 
+double temp_one_Wire(void)
+{ 
+  double CTemp = 0.00;
+  // Call sensors.requestTemperatures() to issue a global temperature and Requests to all devices on the bus
+  sensors.requestTemperatures(); 
+  
+  //Serial.print("\nCelsius temperature: ");
+  // Why "byIndex"? You can have more than one IC on the same bus. 0 refers to the first IC on the wire
+  CTemp = sensors.getTempCByIndex(0);
+  //Serial.print(CTemp); 
+  //Serial.print(" - Fahrenheit temperature: ");
+  //Serial.println(sensors.getTempFByIndex(0));
+  delay(500);
+  return CTemp;
+}
 double temp_sense()
 {
 //Temperature Sensor Calculation Constants
 const double BETA               = 3990.00;   //Beta value of Thermister
 const double RESISTOR_ROOM_TEMP = 100000.00; //Thermister Resistance at 25 C 
 const double ROOM_TEMP          = (273.15 + 27);   //room temperature in Kelvin
-const double R_bal              = 100000.00;//100k Balance Resister
-const int SAMPLE_NUMBER         = 100;       //Total no. of samples to average
+const double R_bal              = 1; //100000.00;//100k Balance Resister
+const int SAMPLE_NUMBER         = 150;       //Total no. of samples to average
 
 //Temperature Sensor Calculation Variables
 long int sensorValue  = 0;
@@ -91,8 +134,8 @@ int adcSamples[SAMPLE_NUMBER];
   Rt   = (((R_bal*1023.00)/sensorValue) - R_bal);
   KTemp = (BETA * ROOM_TEMP)/(BETA+(ROOM_TEMP * log(Rt/ RESISTOR_ROOM_TEMP)));
   CTemp = KTemp - 273.15;
-//  Serial.print("\n Sensor Value:\t"); 
-//  Serial.print(sensorValue); //printing value of sensor on the serial monitor
+  Serial.print("\n Sensor Value:\t"); 
+  Serial.print(sensorValue); //printing value of sensor on the serial monitor
 //  Serial.print("\n ADC Voltage:\t"); 
 //  Serial.print(Vadc); // printing temperature on the serial monitor
 //  Serial.print("\n R Thermister:\t"); 
